@@ -4,7 +4,7 @@ const moment = require('moment');
 const { decode } = require('html-entities');
 const { parseString } = require('xml2js');
 
-const clientId = '1135146769160884296';
+const clientId = '1135335942933200970';
 RPC.register(clientId);
 const client = new RPC.Client({ transport: 'ipc' });
 
@@ -14,6 +14,7 @@ client.on('ready', () => {
 });
 
 function GetVlcData() {
+    let output;
     axios({
         method: 'get',
         url: 'http://localhost:8080/requests/status.xml',
@@ -28,28 +29,102 @@ function GetVlcData() {
             const jsonData = JSON.stringify(result);
             const jsonDataParsed = JSON.parse(jsonData);
 
-            if (jsonDataParsed.root.information[0]) {
-                let titlte = decode(jsonDataParsed.root.information[0].category[0].info.pop()._);
-                let author = jsonDataParsed.root.information[0].category[0].info[3]._;
-                let filename = jsonDataParsed.root.information[0].category[0].info[5]._;
-                let largeIcon = filename.slice(0, -4);
-                console.log(largeIcon);
+            const Music = jsonDataParsed.root.information[0].category[0].info;
 
-                const output = {
-                    details: `${titlte}`,
+            if (Music) {
+                let title;
+                let author;
+                let filename;
+                let url;
+                let MusicStatus;
+                let MusicIcon;
+                Music.map((information) => {
+                    switch (information.$.name) {
+                        case "title":
+                            title = decode(information._);
+                            break;
+                        case "artist":
+                            author = decode(information._);
+                            break;
+                        case "filename":
+                            filename = information._;
+                            break;
+                        case "purl":
+                            url = information._;
+                            break;
+                        default:
+                            break;
+                    }
+                });
+                let largeIconKey = filename.slice(0, -4);
+
+                if (jsonDataParsed.root.state[0] === "playing") {
+                    MusicStatus = "En cours";
+                    MusicIcon = "play";
+                } else {
+                    MusicStatus = "En pause";
+                    MusicIcon = "pause";
+                };
+
+                output = {
+                    details: `${title}`,
                     state: `By ${author}`,
-                    largeImageKey: `${largeIcon}`,
-                    largeImageText: "test",
-                    smallImageKey: "music",
-                    smallImageText: "test",
-                    instance: false            
-                }
+                    largeImageKey: `http://144.217.4.195:26001/data/${largeIconKey}.png`,
+                    largeImageText: `Made by ${author}`,
+                    smallImageKey: `${MusicIcon}`,
+                    smallImageText: `${MusicStatus}`,
+                    instance: false,
+                    startTimestamp: Date.now(),
+                    endTimestamp: Date.now() + ((result.root.length[0] - result.root.time[0]) * 1000),
+                    buttons: [
+                        {
+                            label: "Ecouter",
+                            url: url
+                        },
+                        {
+                            label: "Disocrd SCP CTG",
+                            url: "https://discord.gg/qZAXn6PXrj"
+                        }
+                    ]
+                };
+            } else {
 
-                ActivityChange(output);
-            };
+                output = {
+                    details: `Aucune musique`,
+                    state: "Aucune musique en cours",
+                    largeImageKey: "",
+                    largeImageText: "",
+                    smallImageKey: "",
+                    smallImageText: "",
+                    instance: false,
+                    startTimestamp: Date.now(),
+                    buttons: [
+                        {
+                            label: "Ecouter",
+                            url: "twitch.tv/lebouseuh"
+                        },
+                        {
+                            label: "Voir le site",
+                            url: "https://lebouseuh.net"
+                        }
+                    ]
+                };
+            }
+
+            ActivityChange(output);
         });
     }).catch((err) => {
-        console.log(err);
+        output = {
+            details: `Aucune musique`,
+            state: "Aucune musique en cours",
+            largeImageKey: "",
+            largeImageText: "",
+            smallImageKey: "",
+            smallImageText: "",
+            instance: false
+        };
+        
+        ActivityChange(output);
     });
 }
 
@@ -62,19 +137,3 @@ function ActivityChange(json) {
 //GetVlcData();
 
 client.login({ clientId }).catch(console.error);
-
-function deleteSpace(chaine) {
-    let resultat = '';
-    let ajoutEspace = true;
-  
-    for (let i = 0; i < chaine.length; i++) {
-        const caractere = chaine[i];
-        if (ajoutEspace && caractere === ' ') {
-        } else {
-            resultat += caractere;
-            ajoutEspace = false;
-        }
-    }
-
-    return resultat;
-}
